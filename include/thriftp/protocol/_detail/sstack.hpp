@@ -65,7 +65,7 @@ namespace thriftp::protocol::_detail {
         }
 
         constexpr void
-        push(value_type value) noexcept
+        push(value_type value) noexcept(std::is_nothrow_assignable_v<T&, T>)
         {
             assert(size() < capacity());
             m_arr[m_size++] = value;

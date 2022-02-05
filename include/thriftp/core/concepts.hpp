@@ -8,12 +8,38 @@
 #include <iterator>
 #include <limits>
 #include <ranges>
+#include <type_traits>
 #include <utility>
+
+
+// generic helpers
+
+namespace thriftp::_detail {
+
+
+    template <class T>
+    concept Mutable =
+        !std::is_const_v<std::remove_reference_t<T>>;
+
+
+    template <class From, class To>
+    concept ExplicitlyConvertibleTo =
+    requires {
+        static_cast<To>(std::declval<From>());
+    };
+
+
+}  // namespace thriftp::_detail
 
 
 // arithmetic types
 
 namespace thriftp {
+
+
+    template <class T>
+    concept Bool =
+        std::same_as<std::remove_cv_t<T>, bool>;
 
 
     namespace _detail {
@@ -22,7 +48,7 @@ namespace thriftp {
         template <class T>
         concept Integer =
             std::integral<T> &&
-            !std::same_as<T, bool>;
+            !Bool<T>;
 
 
         template <class T, std::size_t N>
@@ -42,11 +68,6 @@ namespace thriftp {
 
 
     }  // namespace _detail
-
-
-    template <class T>
-    concept Bool =
-        std::same_as<T, bool>;
 
 
     template <class T>
@@ -97,13 +118,6 @@ namespace thriftp {
 
 
     namespace _detail {
-
-
-        template <class From, class To>
-        concept ExplicitlyConvertibleTo =
-            requires {
-                static_cast<To>(std::declval<From>());
-            };
 
 
         template <class I, class T>
