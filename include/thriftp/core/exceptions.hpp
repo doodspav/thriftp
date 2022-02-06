@@ -211,6 +211,7 @@ namespace thriftp {
             BAD_VERSION,
             INVALID_DATA,
             WRONG_FIELD_TYPE,
+            OUT_OF_RANGE,
             NEGATIVE_SIZE,
             SIZE_LIMIT,
             DEPTH_LIMIT,
@@ -229,6 +230,7 @@ namespace thriftp {
                 case error_type::BAD_VERSION:            return "BAD_VERSION";
                 case error_type::INVALID_DATA:           return "INVALID_DATA";
                 case error_type::WRONG_FIELD_TYPE:       return "WRONG_FIELD_TYPE";
+                case error_type::OUT_OF_RANGE:           return "OUT_OF_RANGE";
                 case error_type::NEGATIVE_SIZE:          return "NEGATIVE_SIZE";
                 case error_type::SIZE_LIMIT:             return "SIZE_LIMIT";
                 case error_type::DEPTH_LIMIT:            return "DEPTH_LIMIT";
