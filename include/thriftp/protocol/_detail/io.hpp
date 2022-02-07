@@ -2,7 +2,10 @@
 #define THRIFTP_PROTOCOL_DETAIL_IO_HPP
 
 
+#include <cstddef>
 #include <iterator>
+#include <type_traits>
+#include <utility>
 
 #include <thriftp/core/concepts.hpp>
 #include <thriftp/core/types.hpp>
@@ -74,129 +77,180 @@ namespace thriftp::protocol::_detail {
     };
 
 
-    struct read_base
+    template <UCharInputIterator I, std::sentinel_for<I> S>
+    class reader_base
         : private io_base
     {
-        template <UCharInputIterator I>
-        static constexpr void
-        read_one_nocheck(I& it, unsigned char& val)
-            noexcept(noexcept(static_cast<unsigned char>(*it)) &&
-                     noexcept(++it))
+    public:
+        using iterator_type = I;
+
+        [[nodiscard]] constexpr iterator_type&&
+        move_iterator() noexcept
         {
-            val = static_cast<unsigned char>(*it);
-            ++it;
+            return std::move(m_it);
         }
 
-        template <UCharInputIterator I, std::sentinel_for<I> S>
-        [[nodiscard]] static constexpr bool
-        read_one(I& it, const S& sen, unsigned char& val)
-            noexcept(noexcept(static_cast<bool>(it == sen)) &&
-                     noexcept(read_one_nocheck(it, val)))
+        template <class It, class Sen>
+            requires std::constructible_from<I, It> &&
+                     std::constructible_from<S, Sen>
+        constexpr reader_base(It&& it, Sen&& sen)
+            noexcept(std::is_nothrow_constructible_v<I, It> &&
+                     std::is_nothrow_constructible_v<S, Sen>)
+            : m_it(std::forward<It>(it)),
+              m_sen(std::forward<Sen>(sen))
+        {}
+
+        constexpr void
+        read_one_nocheck(unsigned char& val)
+            noexcept(noexcept(static_cast<unsigned char>(*m_it)) &&
+                     noexcept(++m_it))
         {
-            if (it == sen) [[unlikely]] { return false; }
-            else [[likely]] { read_one_nocheck(it, val); return true; }
+            val = static_cast<unsigned char>(*m_it);
+            ++m_it;
         }
 
-        template <UCharInputIterator I, UCharOutputIterator O>
-        static constexpr void
-        read_n_nocheck(I& it, O& ot, std::size_t n)
-            noexcept(noexcept(copy_advance_nocheck(it, ot)))
+        [[nodiscard]] constexpr bool
+        read_one(unsigned char& val)
+            noexcept(noexcept(static_cast<bool>(m_it == m_sen)) &&
+                     noexcept(read_one_nocheck(val)))
         {
-            while (n > 0) { copy_advance_nocheck(it, ot); --n; }
+            if (m_it == m_sen) [[unlikely]] { return false; }
+            else [[likely]] { read_one_nocheck(val); return true; }
         }
 
-        template <UCharInputIterator I, std::sentinel_for<I> S, UCharOutputIterator O>
-        [[nodiscard]] static constexpr std::size_t
-        read_n(I& it, const S& sen, O& ot, std::size_t n)
-            noexcept(noexcept(static_cast<bool>(it == sen)) &&
-                     noexcept(copy_advance_nocheck(it, ot)))
+        constexpr void
+        read_n_nocheck(UCharOutputIterator auto& ot, std::size_t n)
+            noexcept(noexcept(copy_advance_nocheck(m_it, ot)))
+        {
+            while (n > 0) { copy_advance_nocheck(m_it, ot); --n; }
+        }
+
+        [[nodiscard]] constexpr std::size_t
+        read_n(UCharOutputIterator auto& ot, std::size_t n)
+            noexcept(noexcept(static_cast<bool>(m_it == m_sen)) &&
+                     noexcept(copy_advance_nocheck(m_it, ot)))
         {
             while (n > 0)
             {
-                if (it == sen) [[unlikely]] { return n; }
-                else [[likely]] { copy_advance_nocheck(it, ot); --n; }
+                if (m_it == m_sen) [[unlikely]] { return n; }
+                else [[likely]] { copy_advance_nocheck(m_it, ot); --n; }
             }
             return 0;
         }
 
-        template <UCharInputIterator I, std::sized_sentinel_for<I> S, UCharOutputIterator O>
-        [[nodiscard]] static constexpr std::size_t
-        read_n(I& it, const S& sen, O& ot, std::size_t n)
-            noexcept(noexcept(read_n_nocheck(it, ot, n)) &&
-                     noexcept(std::iter_difference_t<I>(sen - it)))
-            requires thriftp::_detail::Integer<std::iter_difference_t<I>>
-
+        [[nodiscard]] constexpr std::size_t
+        read_n(UCharOutputIterator auto& ot, std::size_t n)
+            noexcept(noexcept(read_n_nocheck(ot, n)) &&
+                     noexcept(std::iter_difference_t<I>(m_sen - m_it)))
+            requires std::sized_sentinel_for<S, I> &&
+                     thriftp::_detail::Integer<std::iter_difference_t<I>>
         {
             using diff_t = std::iter_difference_t<I>;  // likely signed
-            auto idist = static_cast<diff_t>(sen - it);
+            auto idist = static_cast<diff_t>(m_sen - m_it);
             auto udist = static_cast<std::make_unsigned_t<diff_t>>(idist);
-            // double check because dist is (likely) signed and n is unsigned
+
+            // double check because idist is (likely) signed and n is unsigned
             if (idist < 0 || udist < n) [[unlikely]] { return n; }
-            else [[likely]] { read_n_nocheck(it, ot, n); return 0; }
+            else [[likely]] { read_n_nocheck(ot, n); return 0; }
         }
+
+    private:
+        [[no_unique_address]] I m_it;
+        [[no_unique_address]] S m_sen;
     };
 
 
-    struct write_base
+    template <class I, class S>
+    reader_base(I&&, S&&)
+        -> reader_base<std::remove_cvref_t<I>, std::remove_cvref_t<S>>;
+
+
+    template <UCharOutputIterator O, std::sentinel_for<O> S>
+    class writer_base
         : private io_base
     {
-        template <UCharOutputIterator O>
-        static constexpr void
-        write_one_nocheck(O& ot, unsigned char val)
+    public:
+        using iterator_type = O;
+
+        [[nodiscard]] constexpr iterator_type&&
+        move_iterator() noexcept
+        {
+            return std::move(m_ot);
+        }
+
+        template <class Ot, class Sen>
+            requires std::constructible_from<O, Ot> &&
+                     std::constructible_from<S, Sen>
+        constexpr writer_base(Ot&& ot, Sen&& sen)
+            noexcept(std::is_nothrow_constructible_v<O, Ot> &&
+                     std::is_nothrow_constructible_v<S, Sen>)
+            : m_ot(std::forward<Ot>(ot)),
+              m_sen(std::forward<Sen>(sen))
+        {}
+
+        constexpr void
+        write_one_nocheck(unsigned char val)
             noexcept(noexcept(copy_advance_nocheck(
-                              std::declval<const unsigned char*&>(), ot)))
+                              std::declval<const unsigned char*&>(), m_ot)))
         {
             const unsigned char *it = &val;
-            copy_advance_nocheck(it, ot);
+            copy_advance_nocheck(it, m_ot);
         }
 
-        template <UCharOutputIterator O, std::sentinel_for<O> S>
-        [[nodiscard]] static constexpr bool
-        write_one(O& ot, const S& sen, unsigned char val)
-            noexcept(noexcept(static_cast<bool>(ot == sen)) &&
-                     noexcept(write_one_nocheck(ot, val)))
+        [[nodiscard]] constexpr bool
+        write_one(unsigned char val)
+            noexcept(noexcept(static_cast<bool>(m_ot == m_sen)) &&
+                     noexcept(write_one_nocheck(val)))
         {
-            if (ot == sen) [[unlikely]] { return false; }
-            else [[likely]] { write_one_nocheck(ot, val); return true; }
+            if (m_ot == m_sen) [[unlikely]] { return false; }
+            else [[likely]] { write_one_nocheck(val); return true; }
         }
 
-        template <UCharOutputIterator O, UCharInputIterator I>
-        static constexpr void
-        write_n_nocheck(O& ot, I& it, std::size_t n)
-            noexcept(noexcept(copy_advance_nocheck(it, ot)))
+        constexpr void
+        write_n_nocheck(UCharInputIterator auto& it, std::size_t n)
+            noexcept(noexcept(copy_advance_nocheck(it, m_ot)))
         {
-            while (n > 0) { copy_advance_nocheck(it, ot); --n; }
+            while (n > 0) { copy_advance_nocheck(it, m_ot); --n; }
         }
 
-        template <UCharOutputIterator O, std::sentinel_for<O> S, UCharInputIterator I>
-        [[nodiscard]] static constexpr std::size_t
-        write_n(O& ot, const S& sen, I& it, std::size_t n)
-            noexcept(noexcept(static_cast<bool>(ot == sen)) &&
-                     noexcept(copy_advance_nocheck(it, ot)))
+        [[nodiscard]] constexpr std::size_t
+        write_n(UCharInputIterator auto& it, std::size_t n)
+            noexcept(noexcept(static_cast<bool>(m_ot == m_sen)) &&
+                     noexcept(copy_advance_nocheck(it, m_ot)))
         {
             while (n > 0)
             {
-                if (ot == sen) [[unlikely]] { return n; }
-                else [[likely]] { copy_advance_nocheck(it, ot); --n; }
+                if (m_ot == m_sen) [[unlikely]] { return n; }
+                else [[likely]] { copy_advance_nocheck(it, m_ot); --n; }
             }
             return 0;
         }
 
-        template <UCharOutputIterator O, std::sized_sentinel_for<O> S, UCharInputIterator I>
-        [[nodiscard]] static constexpr std::size_t
-        write_n(O& ot, const S& sen, I& it, std::size_t n)
-            noexcept(noexcept(write_n_nocheck(ot, it, n)) &&
-                     noexcept(std::iter_difference_t<O>(sen - ot)))
-            requires thriftp::_detail::Integer<std::iter_difference_t<O>>
+        [[nodiscard]] constexpr std::size_t
+        write_n(UCharInputIterator auto& it, std::size_t n)
+            noexcept(noexcept(write_n_nocheck(it, n)) &&
+                     noexcept(std::iter_difference_t<O>(m_sen - m_ot)))
+            requires std::sized_sentinel_for<S, O> &&
+                     thriftp::_detail::Integer<std::iter_difference_t<O>>
         {
-            using diff_t = std::iter_difference_t<O>;
-            auto idist = static_cast<diff_t>(sen - ot);
+            using diff_t = std::iter_difference_t<O>;  // likely signed
+            auto idist = static_cast<diff_t>(m_sen - m_ot);
             auto udist = static_cast<std::make_unsigned_t<diff_t>>(idist);
-            // double check because dist is (likely) signed and n is unsigned
+
+            // double check because idist is (likely) signed and n is unsigned
             if (idist < 0 || udist < n) [[unlikely]] { return n; }
-            else [[likely]] { write_n_nocheck(ot, it, n); return 0; }
+            else [[likely]] { write_n_nocheck(it, n); return 0; }
         }
+
+    private:
+        [[no_unique_address]] O m_ot;
+        [[no_unique_address]] S m_sen;
     };
+
+
+    template <class O, class S>
+    writer_base(O&&, S&&)
+        -> writer_base<std::remove_cvref_t<O>, std::remove_cvref_t<S>>;
 
 
 }  // namespace thriftp::protocol::_detail

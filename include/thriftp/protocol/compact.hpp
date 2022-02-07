@@ -2,17 +2,7 @@
 #define THRIFTP_PROTOCOL_COMPACT_HPP
 
 
-#include <cstddef>
-#include <iterator>
-#include <limits>
-#include <type_traits>
-
-#include <thriftp/core/concepts.hpp>
 #include <thriftp/core/exceptions.hpp>
-#include <thriftp/core/types.hpp>
-
-#include <thriftp/protocol/_detail/io.hpp>
-#include <thriftp/protocol/_detail/sstack.hpp>
 
 
 namespace thriftp::protocol {
@@ -54,80 +44,6 @@ namespace thriftp::protocol {
             using aet = application_exception::error_type;
             using pet = protocol_exception::error_type;
             using iet = io_exception::error_type;
-        };
-
-
-        template <std::size_t N>
-            requires (N != std::numeric_limits<decltype(N)>::max())
-        class compact_read
-            : private compact_base,
-              private read_base
-        {
-        public:
-            constexpr compact_read() noexcept
-            {
-                // make sure stack is never empty
-                // so that on error we don't have to check if it is
-                m_fields.push(0);
-            }
-
-        private:
-            static_stack<fid_t, N + 1> m_fields;
-
-        public:
-            template <UCharInputIterator I, std::sentinel_for<I> S>
-            constexpr void
-            read_byte(I& it, const S& sen, Byte auto& byte)
-                requires thriftp::_detail::Mutable<decltype(byte)>
-            {
-                unsigned char val;
-                if (!read_one(it, sen, val)) [[unlikely]]
-                {
-                    throw io_exception_with_state(
-                        std::move(it),
-                        1,  // bytes not read
-                        iet::INPUT_EOF,
-                        "read_byte() failed to read 1/1 bytes"
-                    );
-                }
-                byte = static_cast<std::decay_t<decltype(byte)>>(val);
-            }
-        };
-
-
-        template <std::size_t N>
-            requires (N != std::numeric_limits<decltype(N)>::max())
-        class compact_write
-            : private compact_base,
-              private write_base
-        {
-        public:
-            constexpr compact_write() noexcept
-            {
-                // make sure stack is never empty
-                // so that on error we don't have to check if it is
-                m_fields.push(0);
-            }
-
-        private:
-            static_stack<fid_t, N + 1> m_fields;
-
-        public:
-            template <UCharOutputIterator O, std::sentinel_for<O> S>
-            constexpr void
-            write_byte(O& ot, const S& sen, Byte auto byte)
-            {
-                auto val = static_cast<unsigned char>(byte);
-                if (!write_one(ot, sen, val)) [[unlikely]]
-                {
-                    throw io_exception_with_state(
-                        std::move(ot),
-                        1,  // bytes not written
-                        iet::OUTPUT_EOF,
-                        "write_byte() failed to write 1/1 bytes"
-                    );
-                }
-            }
         };
 
 

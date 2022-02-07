@@ -12,13 +12,13 @@ namespace thriftp::protocol::_detail {
 
 
     template <unsigned N>
-        requires (N >= 2 && N <= std::numeric_limits<unsigned long long>::digits)
+        requires (N != 0 && N <= std::numeric_limits<unsigned long long>::digits)
     struct bits
     {
         using int_t = signed long long;
         using uint_t = unsigned long long;
 
-        static consteval uint_t
+        [[nodiscard]] static consteval uint_t
         umax() noexcept
         {
             uint_t n = 0;
@@ -30,7 +30,7 @@ namespace thriftp::protocol::_detail {
             return n;
         }
 
-        static consteval int_t
+        [[nodiscard]] static consteval int_t
         imax() noexcept
         {
             int_t n = 0;
@@ -42,13 +42,13 @@ namespace thriftp::protocol::_detail {
             return n;
         }
 
-        static consteval int_t
+        [[nodiscard]] static consteval int_t
         imin() noexcept
         {
             return static_cast<int_t>(-imax() - 1);
         }
 
-        static consteval uint_t
+        [[nodiscard]] static consteval uint_t
         vsize() noexcept
         {
             auto s = static_cast<uint_t>(N / 7u);
@@ -56,7 +56,7 @@ namespace thriftp::protocol::_detail {
             return s;
         }
 
-        static consteval uint_t
+        [[nodiscard]] static consteval uint_t
         vlast() noexcept
         {
             uint_t n = 0;
@@ -68,13 +68,13 @@ namespace thriftp::protocol::_detail {
             return n;
         }
 
-        static consteval uint_t
+        [[nodiscard]] static consteval uint_t
         vshift() noexcept
         {
             return static_cast<uint_t>(N - (N % 7));
         }
 
-        static constexpr auto
+        [[nodiscard]] static constexpr auto
         to_signed(thriftp::_detail::UIntAnyN<N> auto uN) noexcept
         {
             using uN_t = decltype(uN);
@@ -91,7 +91,7 @@ namespace thriftp::protocol::_detail {
             return static_cast<iN_t>(uN | mask);
         }
 
-        static constexpr auto
+        [[nodiscard]] static constexpr auto
         to_signed(thriftp::_detail::UIntExactN<N> auto uN) noexcept
         {
             using uN_t = decltype(uN);
@@ -100,7 +100,7 @@ namespace thriftp::protocol::_detail {
             return static_cast<iN_t>(uN);
         }
 
-        static constexpr auto
+        [[nodiscard]] static constexpr auto
         to_unsigned(thriftp::_detail::IntAnyN<N> auto iN) noexcept
         {
             using iN_t = decltype(iN);
@@ -113,7 +113,7 @@ namespace thriftp::protocol::_detail {
             return uN;
         }
 
-        static constexpr auto
+        [[nodiscard]] static constexpr auto
         to_unsigned(thriftp::_detail::IntExactN<N> auto iN) noexcept
         {
             using iN_t = decltype(iN);

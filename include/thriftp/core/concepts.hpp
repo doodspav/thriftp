@@ -53,7 +53,7 @@ namespace thriftp {
 
         template <class T, std::size_t N>
         concept IntAnyN =
-            N >= 8 &&
+            N != 0 &&
             Integer<T> &&
             std::signed_integral<T> &&
             std::numeric_limits<T>::digits >= (N - 1);
@@ -61,7 +61,7 @@ namespace thriftp {
 
         template <class T, std::size_t N>
         concept UIntAnyN =
-            N >= 8 &&
+            N != 0 &&
             Integer<T> &&
             std::unsigned_integral<T> &&
             std::numeric_limits<T>::digits >= N;
