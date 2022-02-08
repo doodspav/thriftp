@@ -2,7 +2,10 @@
 #define THRIFTP_CORE_TRAITS_HPP
 
 
+#include <concepts>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <string_view>
 #include <type_traits>
 
@@ -48,6 +51,52 @@ namespace thriftp {
         }
 
 
+        template <unsigned N>
+            requires (N != 0 && N <= std::numeric_limits<unsigned long long>::digits)
+        [[nodiscard]] consteval std::integral auto
+        exact_or_fast_signed_zero() noexcept
+        {
+            if constexpr (N < 8) { return std::int_fast8_t{}; }
+            else if constexpr (N == 8)
+            {
+#ifdef INT8_MAX
+                return std::int8_t{};
+#else
+                return std::int_fast8_t{};
+#endif
+            }
+            else if constexpr (N < 16) { return std::int_fast16_t{}; }
+            else if constexpr (N == 16)
+            {
+#ifdef INT16_MAX
+                return std::int16_t{};
+#else
+                return std::int_fast16_t{};
+#endif
+            }
+            else if constexpr (N < 32) { return std::int_fast32_t{}; }
+            else if constexpr (N == 32)
+            {
+#ifdef INT32_MAX
+                return std::int32_t{};
+#else
+                return std::int_fast32_t{};
+#endif
+            }
+            else if constexpr (N < 64) { return std::int_fast64_t{}; }
+            else if constexpr (N == 64)
+            {
+#ifdef INT64_MAX
+                return std::int64_t{};
+#else
+                return std::int_fast64_t{};
+#endif
+            }
+            // explicit cast for clarity
+            else { return static_cast<long long>(0); }
+        }
+
+
     }  // namespace _detail
 
 
@@ -63,6 +112,26 @@ namespace thriftp {
 
     template <std::size_t N>
     using size_constant = std::integral_constant<std::size_t, N>;
+
+
+    template <unsigned N>
+    struct exact_or_fast_int
+    {
+        using type = decltype(_detail::exact_or_fast_signed_zero<N>());
+    };
+
+    template <unsigned N>
+    using exact_or_fast_int_t = typename exact_or_fast_int<N>::type;
+
+
+    template <unsigned N>
+    struct exact_or_fast_uint
+    {
+        using type = std::make_signed_t<exact_or_fast_int_t<N>>;
+    };
+
+    template <unsigned N>
+    using exact_or_fast_uint_t = typename exact_or_fast_uint<N>::type;
 
 
 }  // namespace thriftp

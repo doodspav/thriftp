@@ -81,6 +81,39 @@ namespace thriftp::protocol {
                 // so that on error we don't have to check if it is
                 m_fields.push(0);
             }
+
+            template <Byte T>
+            constexpr T
+            read_byte()
+            {
+                unsigned char val;
+                if (!reader_type::read_one(val)) [[unlikely]]
+                {
+                    throw io_exception_with_state(
+                        move_iterator(),
+                        1,  // bytes not read
+                        iet::INPUT_EOF,
+                        "read_byte() failed to read 1/1 bytes"
+                    );
+                }
+
+                auto byte = static_cast<T>(val);
+                if constexpr (CHAR_BIT != 8)
+                {
+                    if (!bits<8>::in_range(byte)) [[unlikely]]
+                    {
+                        throw protocol_exception_with_state(
+                            move_iterator(),
+                            m_fields.top(),
+                            pet::INVALID_DATA,
+                            "read_byte() value exceeds 8 bits"
+                        );
+                    }
+                }
+
+                return byte;
+            }
+
         };
 
 
@@ -106,6 +139,31 @@ namespace thriftp::protocol {
                 // make sure that stack is never empty
                 // so that on error we don't have to check if it is
                 m_fields.push(0);
+            }
+
+            constexpr void
+            write_byte(Byte auto byte)
+            {
+                if (!bits<8>::in_range(byte))
+                {
+                    throw protocol_exception_with_state(
+                        move_iterator(),
+                        m_fields.top(),
+                        pet::OUT_OF_RANGE,
+                        "write_byte() value exceeds 8 bits"
+                    );
+                }
+
+                auto val = static_cast<unsigned char>(byte);
+                if (!writer_type::write_one(val)) [[unlikely]]
+                {
+                    throw io_exception_with_state(
+                        move_iterator(),
+                        1,  // bytes not written
+                        iet::OUTPUT_EOF,
+                        "write_byte() failed to write 1/1 bytes"
+                    );
+                }
             }
         };
 

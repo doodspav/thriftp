@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include <thriftp/core/concepts.hpp>
+#include <thriftp/core/traits.hpp>
 
 
 namespace thriftp::protocol::_detail {
@@ -15,8 +16,8 @@ namespace thriftp::protocol::_detail {
         requires (N != 0 && N <= std::numeric_limits<unsigned long long>::digits)
     struct bits
     {
-        using int_t = signed long long;
-        using uint_t = unsigned long long;
+        using int_t = exact_or_fast_int_t<N>;
+        using uint_t = exact_or_fast_uint<N>;
 
         [[nodiscard]] static consteval uint_t
         umax() noexcept
@@ -71,7 +72,7 @@ namespace thriftp::protocol::_detail {
         [[nodiscard]] static consteval uint_t
         vshift() noexcept
         {
-            return static_cast<uint_t>(N - (N % 7));
+            return static_cast<uint_t>(N - (N % 7u));
         }
 
         [[nodiscard]] static constexpr auto
@@ -120,6 +121,30 @@ namespace thriftp::protocol::_detail {
             using uN_t = std::make_unsigned_t<iN_t>;
 
             return static_cast<uN_t>(iN);
+        }
+
+        [[nodiscard]] static constexpr bool
+        in_range(thriftp::_detail::IntAnyN<N> auto iN) noexcept
+        {
+            return iN >= imin() && iN <= imax();
+        }
+
+        [[nodiscard]] static constexpr bool
+        in_range(thriftp::_detail::IntExactN<N> auto iN) noexcept
+        {
+            return true;
+        }
+
+        [[nodiscard]] static constexpr bool
+        in_range(thriftp::_detail::UIntAnyN<N> auto uN) noexcept
+        {
+            return uN <= umax();
+        }
+
+        [[nodiscard]] static constexpr bool
+        in_range(thriftp::_detail::UIntExactN<N> auto uN) noexcept
+        {
+            return true;
         }
     };
 
