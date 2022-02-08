@@ -90,14 +90,11 @@ namespace thriftp::protocol::_detail {
             return std::move(m_it);
         }
 
-        template <class It, class Sen>
-            requires std::constructible_from<I, It> &&
-                     std::constructible_from<S, Sen>
-        constexpr reader_base(It&& it, Sen&& sen)
-            noexcept(std::is_nothrow_constructible_v<I, It> &&
-                     std::is_nothrow_constructible_v<S, Sen>)
-            : m_it(std::forward<It>(it)),
-              m_sen(std::forward<Sen>(sen))
+        constexpr reader_base(I&& it, const S& sen)
+            noexcept(std::is_nothrow_move_constructible_v<I> &&
+                     std::is_nothrow_copy_constructible_v<S>)
+            : m_it(std::move(it)),
+              m_sen(sen)
         {}
 
         constexpr void
@@ -160,11 +157,6 @@ namespace thriftp::protocol::_detail {
     };
 
 
-    template <class I, class S>
-    reader_base(I&&, S&&)
-        -> reader_base<std::remove_cvref_t<I>, std::remove_cvref_t<S>>;
-
-
     template <UCharOutputIterator O, std::sentinel_for<O> S>
     class writer_base
         : private io_base
@@ -178,14 +170,11 @@ namespace thriftp::protocol::_detail {
             return std::move(m_ot);
         }
 
-        template <class Ot, class Sen>
-            requires std::constructible_from<O, Ot> &&
-                     std::constructible_from<S, Sen>
-        constexpr writer_base(Ot&& ot, Sen&& sen)
-            noexcept(std::is_nothrow_constructible_v<O, Ot> &&
-                     std::is_nothrow_constructible_v<S, Sen>)
-            : m_ot(std::forward<Ot>(ot)),
-              m_sen(std::forward<Sen>(sen))
+        constexpr writer_base(O&& ot, const S& sen)
+            noexcept(std::is_nothrow_move_constructible_v<O> &&
+                     std::is_nothrow_copy_constructible_v<S>)
+            : m_ot(std::move(ot)),
+              m_sen(sen)
         {}
 
         constexpr void
@@ -246,11 +235,6 @@ namespace thriftp::protocol::_detail {
         [[no_unique_address]] O m_ot;
         [[no_unique_address]] S m_sen;
     };
-
-
-    template <class O, class S>
-    writer_base(O&&, S&&)
-        -> writer_base<std::remove_cvref_t<O>, std::remove_cvref_t<S>>;
 
 
 }  // namespace thriftp::protocol::_detail

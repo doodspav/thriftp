@@ -2,7 +2,9 @@
 #define THRIFTP_CORE_TRAITS_HPP
 
 
+#include <cstddef>
 #include <string_view>
+#include <type_traits>
 
 
 namespace thriftp {
@@ -57,6 +59,10 @@ namespace thriftp {
 
     template <class T>
     inline constexpr std::string_view type_name_v = type_name<T>::value;
+
+
+    template <std::size_t N>
+    using size_constant = std::integral_constant<std::size_t, N>;
 
 
 }  // namespace thriftp

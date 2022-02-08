@@ -2,7 +2,18 @@
 #define THRIFTP_PROTOCOL_COMPACT_HPP
 
 
+#include <cstddef>
+#include <iterator>
+#include <limits>
+#include <utility>
+
+#include <thriftp/core/concepts.hpp>
 #include <thriftp/core/exceptions.hpp>
+#include <thriftp/core/traits.hpp>
+#include <thriftp/core/types.hpp>
+
+#include <thriftp/protocol/_detail/io.hpp>
+#include <thriftp/protocol/_detail/sstack.hpp>
 
 
 namespace thriftp::protocol {
@@ -44,6 +55,58 @@ namespace thriftp::protocol {
             using aet = application_exception::error_type;
             using pet = protocol_exception::error_type;
             using iet = io_exception::error_type;
+        };
+
+
+        template <std::size_t N, UCharInputIterator I, std::sentinel_for<I> S>
+            requires (N != std::numeric_limits<decltype(N)>::max())
+        class compact_reader
+            : private reader_base<I, S>,
+              private compact_base
+        {
+        private:
+            using reader_type = reader_base<I, S>;
+
+            static_stack<fid_t, N + 1> m_fields;
+
+        public:
+            using typename reader_type::iterator_type;
+            using reader_type::move_iterator;
+
+            constexpr compact_reader(I&& it, const S& sen, size_constant<N> = {})
+                noexcept(std::is_nothrow_constructible_v<reader_type, I, const S&>)
+                : reader_type(std::move(it), sen)
+            {
+                // make sure that stack is never empty
+                // so that on error we don't have to check if it is
+                m_fields.push(0);
+            }
+        };
+
+
+        template <std::size_t N, UCharOutputIterator O, std::sentinel_for<O> S>
+            requires (N != std::numeric_limits<decltype(N)>::max())
+        class compact_writer
+            : private writer_base<O, S>,
+              private compact_base
+        {
+        private:
+            using writer_type = writer_base<O, S>;
+
+            static_stack<fid_t, N + 1> m_fields;
+
+        public:
+            using typename writer_type::iterator_type;
+            using writer_type::move_iterator;
+
+            constexpr compact_writer(O&& ot, const S& sen, size_constant<N> = {})
+                noexcept(std::is_nothrow_constructible_v<writer_type, O, const S&>)
+                : writer_type(std::move(ot), sen)
+            {
+                // make sure that stack is never empty
+                // so that on error we don't have to check if it is
+                m_fields.push(0);
+            }
         };
 
 
