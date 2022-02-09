@@ -16,13 +16,13 @@ namespace thriftp::protocol::_detail {
         requires (N != 0 && N <= std::numeric_limits<unsigned long long>::digits)
     struct bits
     {
-        using int_t = exact_or_fast_int_t<N>;
-        using uint_t = exact_or_fast_uint<N>;
+        using signed_type = fast_signed_t<N>;
+        using unsigned_type = fast_unsigned_t<N>;
 
-        [[nodiscard]] static consteval uint_t
+        [[nodiscard]] static consteval unsigned_type
         umax() noexcept
         {
-            uint_t n = 0;
+            unsigned_type n = 0;
             for (auto i = 0u; i < N; ++i)
             {
                 n <<= 1u;
@@ -31,10 +31,10 @@ namespace thriftp::protocol::_detail {
             return n;
         }
 
-        [[nodiscard]] static consteval int_t
+        [[nodiscard]] static consteval signed_type
         imax() noexcept
         {
-            int_t n = 0;
+            signed_type n = 0;
             for (auto i = 0u; i < (N - 1u); ++i)
             {
                 n <<= 1;
@@ -43,24 +43,24 @@ namespace thriftp::protocol::_detail {
             return n;
         }
 
-        [[nodiscard]] static consteval int_t
+        [[nodiscard]] static consteval signed_type
         imin() noexcept
         {
-            return static_cast<int_t>(-imax() - 1);
+            return static_cast<signed_type>(-imax() - 1);
         }
 
-        [[nodiscard]] static consteval uint_t
+        [[nodiscard]] static consteval unsigned_type
         vsize() noexcept
         {
-            auto s = static_cast<uint_t>(N / 7u);
+            auto s = static_cast<unsigned_type>(N / 7u);
             s += ((N % 7u) ? 1u : 0u);
             return s;
         }
 
-        [[nodiscard]] static consteval uint_t
+        [[nodiscard]] static consteval unsigned_type
         vlast() noexcept
         {
-            uint_t n = 0;
+            unsigned_type n = 0;
             for (auto i = 0u; i < (N % 7u); ++i)
             {
                 n <<= 1u;
@@ -69,10 +69,10 @@ namespace thriftp::protocol::_detail {
             return n;
         }
 
-        [[nodiscard]] static consteval uint_t
+        [[nodiscard]] static consteval unsigned_type
         vshift() noexcept
         {
-            return static_cast<uint_t>(N - (N % 7u));
+            return static_cast<unsigned_type>(N - (N % 7u));
         }
 
         [[nodiscard]] static constexpr auto
